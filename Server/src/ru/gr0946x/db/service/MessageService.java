@@ -2,7 +2,6 @@ package ru.gr0946x.db.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.gr0946x.db.dto.MessageDto;
 import ru.gr0946x.db.entity.Message;
 import ru.gr0946x.db.entity.User;
 import ru.gr0946x.db.repository.MessageRepository;
@@ -64,6 +63,19 @@ public class MessageService {
         return messageRepository.save(message);
     }
 
+    @Transactional(readOnly = true)
+    public List<Message> getChatHistory(User user1, Long user2) {
+        return messageRepository.findChatHistory(user1.getId(), user2);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Message> searchMessagesInChat(User user1, Long user2, String fragment) {
+        if (fragment == null || fragment.isBlank()) {
+            return List.of();
+        }
+        return messageRepository.searchInChat(user1.getId(), user2, fragment);
+    }
+
     /**
      * Возвращает ленту публикаций пользователя,
      * отсортированную по дате (новые сверху).
@@ -100,20 +112,4 @@ public class MessageService {
 //                ))
 //                .toList();
 //    }
-
-    /**
-     * Ищет публикации пользователя по фрагменту текста.
-     * <p>
-     * Поиск выполняется без учёта регистра и поддерживает
-     * частичное совпадение слов внутри сообщения.
-     *
-     * @param author   пользователь, чьи публикации ищем
-     * @param fragment искомый фрагмент текста
-     * @return список найденных публикаций
-     */
-    @Transactional(readOnly = true)
-    public List<Message> searchPosts(User author, String fragment) {
-        return messageRepository
-                .searchByContentFragment(fragment, author);
-    }
 }

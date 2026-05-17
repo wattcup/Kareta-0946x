@@ -64,6 +64,11 @@ public class UserService {
         return userRepository.existsByNickIgnoreCase(nick);
     }
 
+    @Transactional(readOnly = true)
+    public Optional<User> findByNick(String nick) {
+        return userRepository.findByNickIgnoreCase(nick);
+    }
+
     /**
      * Регистрирует нового пользователя в системе.
      * <p>

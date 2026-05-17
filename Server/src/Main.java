@@ -1,8 +1,15 @@
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import ru.gr0946x.db.DatabaseConfig;
+import ru.gr0946x.db.service.MessageService;
+import ru.gr0946x.db.service.UserService;
 import ru.gr0946x.net.Server;
 
 void main() {
     var context = new AnnotationConfigApplicationContext(DatabaseConfig.class);
-    var s = new Server(9460);
+
+    UserService userService = context.getBean(UserService.class);
+    MessageService messageService = context.getBean(MessageService.class);
+
+    var s = new Server(9460, userService, messageService);
+
 }
