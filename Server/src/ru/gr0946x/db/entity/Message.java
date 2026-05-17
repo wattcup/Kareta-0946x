@@ -1,6 +1,7 @@
 package ru.gr0946x.db.entity;
 
 import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
@@ -13,13 +14,9 @@ import java.time.format.FormatStyle;
  * с меткой времени создания.
  * <p>
  * Класс предназначен для использования с Spring Data JPA и Hibernate.
- *
- * @author Маклецов С. В.
- * @see User
- * @see ru.smak.db.repository.PostRepository
  */
 @Entity
-@Table(name = "posts")
+@Table(name = "messages")
 public class Message {
 
     /**
@@ -49,6 +46,9 @@ public class Message {
     @JoinColumn(name = "author_id", nullable = false)
     private User author;
 
+    @Column(name = "receiver_id", nullable = false)
+    private Long receiverId;
+
     /**
      * Текстовое содержимое публикации.
      * <p>
@@ -67,45 +67,85 @@ public class Message {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "is_received", nullable = false)
+    private boolean isReceived;
+
+
     /**
      * Конструктор по умолчанию, требуемый спецификацией JPA.
      * <p>
      * Используется инфраструктурой Hibernate при загрузке сущностей
      * из базы данных. Не должен вызываться в бизнес-коде приложения.
      */
-    public Message() {}
+    public Message() {
+    }
 
     /**
      * Создаёт новую публикацию с указанным автором и содержимым.
      * <p>
      * Время создания устанавливается автоматически в момент вызова.
      *
-     * @param author пользователь-автор публикации (не {@code null})
+     * @param author  пользователь-автор публикации (не {@code null})
      * @param content текстовое содержимое поста (не {@code null}, не пустое)
      */
-    public Message(User author, String content) {
+    public Message(User author, Long receiverId, String content) {
         this.author = author;
+        this.receiverId = receiverId;
         this.content = content;
         this.createdAt = LocalDateTime.now();
+        this.isReceived = false;
     }
 
     // Геттеры и сеттеры
-    public Long getId() { return id; }
+    public Long getId() {
+        return id;
+    }
 
-    public User getAuthor() { return author; }
-    public void setAuthor(User author) { this.author = author; }
+    public User getAuthor() {
+        return author;
+    }
 
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
+    public void setAuthor(User author) {
+        this.author = author;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Long getReceiverId() {
+        return receiverId;
+    }
+
+    public void setReceiverId(Long receiverId) {
+        this.receiverId = receiverId;
+    }
+
+    public boolean isReceived() {
+        return isReceived;
+    }
+
+    public void setReceived(boolean received) {
+        isReceived = received;
+    }
 
     @Override
     public String toString() {
         return "Post[" + id + "] " + "at "
                 + createdAt.format(
-                        DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT))
+                DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT))
                 + ": " + content
                 + " by " + author.getNick();
     }

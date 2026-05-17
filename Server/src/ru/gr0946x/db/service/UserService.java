@@ -42,6 +42,7 @@ public class UserService {
      * Использует конструкторную инъекцию зависимостей,
      * что является рекомендуемой практикой в Spring для обязательных
      * компонентов.
+     *
      * @param userRepository репозиторий для работы с сущностью {@link User}
      */
     public UserService(UserRepository userRepository) {
@@ -54,6 +55,7 @@ public class UserService {
      * Выполняет быструю проверку без загрузки полной сущности из базы данных.
      * Аннотация {@code @Transactional(readOnly = true)} оптимизирует транзакцию
      * только для операций чтения.
+     *
      * @param nick псевдоним для проверки (регистронезависимо)
      * @return {@code true}, если ник уже существует в базе, иначе {@code false}
      */
@@ -69,7 +71,7 @@ public class UserService {
      * хэш пароля с помощью {@link BCrypt} и сохраняет запись в базу данных.
      * Вся операция выполняется в одной транзакции.
      *
-     * @param nick уникальный псевдоним пользователя
+     * @param nick     уникальный псевдоним пользователя
      * @param password пароль в открытом виде
      *                 (будет захэширован перед сохранением)
      * @return сохранённая сущность {@link User} с присвоенным ID
@@ -77,9 +79,12 @@ public class UserService {
      */
     @Transactional
     public User register(String nick, String password) {
+        if (nick == null || nick.isBlank() || !Character.isLetter(nick.charAt(0))) {
+            throw new IllegalArgumentException("Имя пользователя должно начинаться с буквы");
+        }
         var existing = userRepository.existsByNickIgnoreCase(nick);
         if (existing) {
-            throw new IllegalArgumentException("Ник "+nick+" уже занят");
+            throw new IllegalArgumentException("Ник " + nick + " уже занят");
         }
         var passwordHash = BCrypt.hashpw(password, BCrypt.gensalt());
         User newUser = new User(nick, passwordHash);
@@ -93,11 +98,11 @@ public class UserService {
      * сохранённым хэшем через {@link BCrypt#checkpw}.
      * При успешной проверке возвращает сущность пользователя.
      *
-     * @param nick псевдоним пользователя
+     * @param nick     псевдоним пользователя
      * @param password пароль для проверки
      * @return сущность {@link User}, если учётные данные верны
      * @throws IllegalArgumentException если пользователь не найден
-     * или пароль не совпадает
+     *                                  или пароль не совпадает
      */
     @Transactional
     public User login(String nick, String password) {
@@ -116,6 +121,7 @@ public class UserService {
      * Делегирует вызов репозиторию. Рекомендуется использовать с осторожностью
      * при большом количестве записей в базе
      * (в продакшене лучше применять пагинацию).
+     *
      * @return список сущностей {@link User}
      */
     public List<User> getAllUsers() {

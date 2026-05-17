@@ -17,13 +17,13 @@ import java.util.List;
  * транзакций для обеспечения целостности данных.
  *
  * @author Маклецов С. В.
- * @see Post
- * @see PostRepository
+ * @see Message
+ * @see MessageRepository
  */
 @Service
 public class MessageService {
 
-    private final MessageRepository postRepository;
+    private final MessageRepository messageRepository;
 
     /**
      * Создаёт экземпляр сервиса с внедрённым репозиторием.
@@ -31,10 +31,10 @@ public class MessageService {
      * Использует конструкторную инъекцию — рекомендуемый способ
      * внедрения зависимостей в Spring для обязательных компонентов.
      *
-     * @param postRepository репозиторий для работы с {@link ru.gr0946x.db.entity.Message}
+     * @param messageRepository репозиторий для работы с {@link ru.gr0946x.db.entity.Message}
      */
-    public MessageService(MessageRepository postRepository) {
-        this.postRepository = postRepository;
+    public MessageService(MessageRepository messageRepository) {
+        this.messageRepository = messageRepository;
     }
 
     /**
@@ -43,13 +43,13 @@ public class MessageService {
      * Метод выполняется в транзакции: при успешном завершении
      * пост сохраняется в базе, при ошибке — изменения откатываются.
      *
-     * @param author пользователь-автор публикации
+     * @param author  пользователь-автор публикации
      * @param content текстовое содержимое поста
-     * @return сохранённая сущность {@link Post} с присвоенным ID
+     * @return сохранённая сущность {@link Message} с присвоенным ID
      * @throws IllegalArgumentException если автор или контент невалидны
      */
     @Transactional
-    public Message createPost(User author, String content) {
+    public Message createMessage(User author, Long receiverId, String content) {
         if (author == null || author.getId() == null) {
             throw new IllegalArgumentException(
                     "Автор должен быть сохранён в БД"
@@ -60,8 +60,8 @@ public class MessageService {
                     "Содержимое поста не может быть пустым"
             );
         }
-        Message message = new Message(author, content);
-        return postRepository.save(message);
+        Message message = new Message(author, receiverId, content);
+        return messageRepository.save(message);
     }
 
     /**
@@ -74,32 +74,32 @@ public class MessageService {
      * @param author пользователь, чью ленту получаем
      * @return список публикаций (может быть пустым)
      */
-    @Transactional(readOnly = true)
-    public List<Message> getUserFeed(User author) {
-        return postRepository
-                .findByAuthorOrderByCreatedAtDesc(author);
-    }
-
-    @Transactional(readOnly = true)
-    public List<Message> getUserFeedWithInitializedAuthors(User author) {
-        var posts = postRepository.findByAuthorOrderByCreatedAtDesc(author);
-        // Инициализация прокси: обращение к полю внутри транзакции
-        posts.forEach(post -> post.getAuthor().getNick());
-        return posts;
-    }
-
-    @Transactional(readOnly = true)
-    public List<MessageDto> getUserFeedAsDto(User author) {
-        return postRepository.findByAuthorOrderByCreatedAtDesc(author)
-                .stream()
-                .map(p -> new MessageDto(
-                        p.getId(),
-                        p.getAuthor().getNick(), // безопасно: внутри транзакции
-                        p.getContent(),
-                        p.getCreatedAt()
-                ))
-                .toList();
-    }
+//    @Transactional(readOnly = true)
+//    public List<Message> getUserFeed(User author) {
+//        return messageRepository
+//                .findByAuthorOrderByCreatedAtDesc(author);
+//    }
+//
+//    @Transactional(readOnly = true)
+//    public List<Message> getUserFeedWithInitializedAuthors(User author) {
+//        var posts = postRepository.findByAuthorOrderByCreatedAtDesc(author);
+//        // Инициализация прокси: обращение к полю внутри транзакции
+//        posts.forEach(post -> post.getAuthor().getNick());
+//        return posts;
+//    }
+//
+//    @Transactional(readOnly = true)
+//    public List<MessageDto> getUserFeedAsDto(User author) {
+//        return postRepository.findByAuthorOrderByCreatedAtDesc(author)
+//                .stream()
+//                .map(p -> new MessageDto(
+//                        p.getId(),
+//                        p.getAuthor().getNick(), // безопасно: внутри транзакции
+//                        p.getContent(),
+//                        p.getCreatedAt()
+//                ))
+//                .toList();
+//    }
 
     /**
      * Ищет публикации пользователя по фрагменту текста.
@@ -107,13 +107,13 @@ public class MessageService {
      * Поиск выполняется без учёта регистра и поддерживает
      * частичное совпадение слов внутри сообщения.
      *
-     * @param author пользователь, чьи публикации ищем
+     * @param author   пользователь, чьи публикации ищем
      * @param fragment искомый фрагмент текста
      * @return список найденных публикаций
      */
     @Transactional(readOnly = true)
     public List<Message> searchPosts(User author, String fragment) {
-        return postRepository
+        return messageRepository
                 .searchByContentFragment(fragment, author);
     }
 }
