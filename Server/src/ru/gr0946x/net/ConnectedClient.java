@@ -1,5 +1,6 @@
 package ru.gr0946x.net;
 
+import ru.gr0946x.db.entity.Message;
 import ru.gr0946x.db.entity.User;
 import ru.gr0946x.db.service.MessageService;
 import ru.gr0946x.db.service.UserService;
@@ -99,32 +100,50 @@ public class ConnectedClient {
 
     private void processMessage(String data) {
         if (!data.contains(":")) {
+            boolean isRead = clients.stream().anyMatch(c -> c != this && c.name != null);
+            messageService.createMessage(dbUser, 0L, data, isRead);
             sendForAll(MessageType.MESSAGE, data);
             return;
         }
 
         String[] parts = data.split(":", 2);
-        String receiverNick = parts[0].trim();
+        String commandOrNick = parts[0].trim();
         String content = parts[1].trim();
 
-        Optional<User> receiverOpt = userService.findByNick(receiverNick);
-        if (receiverOpt.isEmpty()) {
+        if (commandOrNick.equalsIgnoreCase("history")) {
+            showHistory(content);
+            return;
+        }
+
+        if (commandOrNick.equalsIgnoreCase("find")) {
+            String[] searchParts = content.split(":", 2);
+            if (searchParts.length == 2) {
+                searchHistory(searchParts[0].trim(), searchParts[1].trim());
+            } else {
+                sendData(MessageType.ERROR
+                        + ProtocolConstants.COMMAND_SEPARATOR
+                        + "Неверный формат. Используйте: find:пользователь:текст");
+            }
+            return;
+        }
+
+        User receiver = userService.findByNick(commandOrNick).orElse(null);
+        if (receiver == null) {
             sendData(MessageType.ERROR
                     + ProtocolConstants.COMMAND_SEPARATOR
                     + "Пользователь не найден");
             return;
         }
 
-        messageService.createMessage(dbUser, receiverOpt.get().getId(), content);
+        boolean isRead = clients.stream().anyMatch(c -> c.name != null && c.name.equalsIgnoreCase(commandOrNick));
+        messageService.createMessage(dbUser, receiver.getId(), content, isRead);
 
-        synchronized (clients) {
-            clients.stream()
-                    .filter(c -> c.name != null && (c.name.equalsIgnoreCase(receiverNick) || c.name.equalsIgnoreCase(name)))
-                    .forEach(client -> client.sendData(MessageType.MESSAGE
-                            + ProtocolConstants.COMMAND_SEPARATOR
-                            + name + ProtocolConstants.AUTHOR_SEPARATOR
-                            + content));
-        }
+        clients.stream()
+                .filter(c -> c.name != null && (c.name.equalsIgnoreCase(commandOrNick) || c.name.equalsIgnoreCase(name)))
+                .forEach(client -> client.sendData(MessageType.MESSAGE
+                        + ProtocolConstants.COMMAND_SEPARATOR
+                        + name + ProtocolConstants.AUTHOR_SEPARATOR
+                        + content));
     }
 
     private void sendForAll(MessageType type, String data) {
@@ -152,5 +171,34 @@ public class ConnectedClient {
 
     public void stop() {
         communicator.stop();
+    }
+
+    private void showHistory(String targetNick) {
+        User target = userService.findByNick(targetNick).orElse(null);
+        if (target == null) {
+            sendData(MessageType.ERROR + ProtocolConstants.COMMAND_SEPARATOR + "Пользователь не найден");
+            return;
+        }
+        List<Message> history = messageService.getChatHistory(dbUser, target.getId());
+        sendData(MessageType.INFO + ProtocolConstants.COMMAND_SEPARATOR + "--- История с " + targetNick + " ---");
+        for (Message m : history) {
+            String authorName = m.getAuthor().getId().equals(dbUser.getId()) ? name : targetNick;
+            String status = m.isReceived() ? "[Прочитано]" : "[Не прочитано]";
+            sendData(MessageType.MESSAGE + ProtocolConstants.COMMAND_SEPARATOR + authorName + ProtocolConstants.AUTHOR_SEPARATOR + m.getContent() + " " + status);
+        }
+    }
+
+    private void searchHistory(String targetNick, String fragment) {
+        User target = userService.findByNick(targetNick).orElse(null);
+        if (target == null) {
+            sendData(MessageType.ERROR + ProtocolConstants.COMMAND_SEPARATOR + "Пользователь не найден");
+            return;
+        }
+        List<Message> found = messageService.searchMessagesInChat(dbUser, target.getId(), fragment);
+        sendData(MessageType.INFO + ProtocolConstants.COMMAND_SEPARATOR + "--- Результаты поиска ---");
+        for (Message m : found) {
+            String authorName = m.getAuthor().getId().equals(dbUser.getId()) ? name : targetNick;
+            sendData(MessageType.MESSAGE + ProtocolConstants.COMMAND_SEPARATOR + authorName + ProtocolConstants.AUTHOR_SEPARATOR + m.getContent());
+        }
     }
 }

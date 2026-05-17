@@ -48,7 +48,7 @@ public class MessageService {
      * @throws IllegalArgumentException если автор или контент невалидны
      */
     @Transactional
-    public Message createMessage(User author, Long receiverId, String content) {
+    public Message createMessage(User author, Long receiverId, String content, boolean isReceived) {
         if (author == null || author.getId() == null) {
             throw new IllegalArgumentException(
                     "Автор должен быть сохранён в БД"
@@ -60,6 +60,7 @@ public class MessageService {
             );
         }
         Message message = new Message(author, receiverId, content);
+        message.setReceived(isReceived);
         return messageRepository.save(message);
     }
 
