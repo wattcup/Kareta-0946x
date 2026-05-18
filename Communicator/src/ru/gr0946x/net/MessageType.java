@@ -4,5 +4,6 @@ public enum MessageType {
     MESSAGE,
     INFO,
     REQUEST,
-    ERROR
+    ERROR,
+    USERS_LIST
 }

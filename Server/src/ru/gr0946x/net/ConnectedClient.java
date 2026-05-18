@@ -83,6 +83,7 @@ public class ConnectedClient {
                 }
                 name = temporaryNick;
                 sendForAll(MessageType.INFO, "Пользователь " + name + " вошел в чат");
+                broadcastUsersList();
             } catch (IllegalArgumentException e) {
                 // Возвращаем ошибку валидации или неверного пароля клиенту
                 sendData(MessageType.ERROR
@@ -170,6 +171,13 @@ public class ConnectedClient {
     }
 
     public void stop() {
+        synchronized (clients) {
+            clients.remove(this);
+        }
+        if (name != null) {
+            broadcastUsersList();
+            sendForAll(MessageType.INFO, "Пользователь " + name + " покинул чат");
+        }
         communicator.stop();
     }
 
@@ -199,6 +207,25 @@ public class ConnectedClient {
         for (Message m : found) {
             String authorName = m.getAuthor().getId().equals(dbUser.getId()) ? name : targetNick;
             sendData(MessageType.MESSAGE + ProtocolConstants.COMMAND_SEPARATOR + authorName + ProtocolConstants.AUTHOR_SEPARATOR + m.getContent());
+        }
+    }
+
+    private void broadcastUsersList() {
+        StringBuilder sb = new StringBuilder();
+        synchronized (clients) {
+            for (ConnectedClient c : clients) {
+                if (c.name != null) {
+                    sb.append(c.name).append(",");
+                }
+            }
+        }
+        String list = sb.toString();
+        synchronized (clients) {
+            for (ConnectedClient c : clients) {
+                if (c.name != null) {
+                    c.sendData(MessageType.USERS_LIST + ProtocolConstants.COMMAND_SEPARATOR + list);
+                }
+            }
         }
     }
 }

@@ -16,19 +16,28 @@ public class SwingUi implements Ui {
     private JFrame frame;
     private JTextArea chatArea;
     private JTextField inputField;
+    private JList<String> userList;
+    private DefaultListModel<String> listModel;
 
     public void start() {
         SwingUtilities.invokeLater(() -> {
             frame = new JFrame("Мессенджер Карета");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setSize(500, 600);
+            frame.setSize(650, 600);
             frame.setLayout(new BorderLayout());
 
             chatArea = new JTextArea();
             chatArea.setEditable(false);
             chatArea.setLineWrap(true);
-            JScrollPane scrollPane = new JScrollPane(chatArea);
-            frame.add(scrollPane, BorderLayout.CENTER);
+            frame.add(new JScrollPane(chatArea), BorderLayout.CENTER);
+
+            listModel = new DefaultListModel<>();
+            userList = new JList<>(listModel);
+            userList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+            JScrollPane listScroll = new JScrollPane(userList);
+            listScroll.setPreferredSize(new Dimension(150, 0));
+            listScroll.setBorder(BorderFactory.createTitledBorder("В сети:"));
+            frame.add(listScroll, BorderLayout.EAST);
 
             JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
             JButton historyButton = new JButton("История чата");
@@ -57,10 +66,14 @@ public class SwingUi implements Ui {
     }
 
     private void handleInput(ActionEvent e) {
-        String text = inputField.getText();
+        String text = inputField.getText().trim();
         if (!text.isEmpty()) {
-            for (Consumer<String> listener : listeners) {
-                listener.accept(text);
+            String selectedUser = userList.getSelectedValue();
+            if (selectedUser != null && !selectedUser.isEmpty()) {
+                notifyListeners(selectedUser + ":" + text);
+                userList.clearSelection();
+            } else {
+                notifyListeners(text);
             }
             inputField.setText("");
         }
@@ -107,6 +120,14 @@ public class SwingUi implements Ui {
                 }
                 default -> {
                     chatArea.append("[ИНФО]: " + data + "\n\n");
+                }
+                case USERS_LIST -> {
+                    listModel.clear();
+                    if (!data.isBlank()) {
+                        for (String user : data.split(",")) {
+                            if (!user.isBlank()) listModel.addElement(user);
+                        }
+                    }
                 }
             }
             chatArea.setCaretPosition(chatArea.getDocument().getLength());
