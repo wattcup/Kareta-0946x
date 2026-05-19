@@ -29,7 +29,18 @@ public class SwingUi implements Ui {
             chatArea = new JTextArea();
             chatArea.setEditable(false);
             chatArea.setLineWrap(true);
+
             frame.add(new JScrollPane(chatArea), BorderLayout.CENTER);
+
+            frame.addWindowFocusListener(new java.awt.event.WindowAdapter() {
+                @Override
+                public void windowGainedFocus(java.awt.event.WindowEvent e) {
+                    String selectedUser = userList.getSelectedValue();
+                    if (selectedUser != null && !selectedUser.isBlank()) {
+                        notifyListeners("read:" + selectedUser.trim());
+                    }
+                }
+            });
 
             listModel = new DefaultListModel<>();
             userList = new JList<>(listModel);
@@ -44,6 +55,7 @@ public class SwingUi implements Ui {
                     String selectedUser = userList.getSelectedValue();
                     if (selectedUser != null && !selectedUser.isBlank()) {
                         notifyListeners("history:" + selectedUser.trim());
+                        notifyListeners("read:" + selectedUser.trim());
                     }
                 }
             });
@@ -51,9 +63,13 @@ public class SwingUi implements Ui {
             JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
             JButton historyButton = new JButton("История чата");
             JButton searchButton = new JButton("Поиск по чату");
+            JButton clearButton = new JButton("Общий чат");
+            clearButton.addActionListener(e -> userList.clearSelection());
             topPanel.add(historyButton);
             topPanel.add(searchButton);
+            topPanel.add(clearButton);
             frame.add(topPanel, BorderLayout.NORTH);
+
 
             JPanel bottomPanel = new JPanel(new BorderLayout());
             inputField = new JTextField();
@@ -96,8 +112,11 @@ public class SwingUi implements Ui {
     }
 
     private void handleSearchRequest() {
-        String target = JOptionPane.showInputDialog(frame, "Введите имя собеседника:");
-        if (target == null || target.isBlank()) return;
+        String target = userList.getSelectedValue();
+
+        if (target == null || target.isBlank()) {
+            target = "all";
+        }
 
         String fragment = JOptionPane.showInputDialog(frame, "Введите текст для поиска:");
         if (fragment != null && !fragment.isBlank()) {
@@ -120,6 +139,11 @@ public class SwingUi implements Ui {
                     if (message.length == 2) {
                         chatArea.append(message[0] + " написал: \n");
                         chatArea.append(message[1] + "\n\n");
+
+                        String selectedUser = userList.getSelectedValue();
+                        if (selectedUser != null && frame.isActive() && selectedUser.trim().equalsIgnoreCase(message[0].trim())) {
+                            notifyListeners("read:" + selectedUser.trim());
+                        }
                     } else {
                         chatArea.append(data + "\n\n");
                     }

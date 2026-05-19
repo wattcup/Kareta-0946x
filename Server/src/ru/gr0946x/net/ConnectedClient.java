@@ -1,7 +1,6 @@
 package ru.gr0946x.net;
 
 import ru.gr0946x.db.dto.MessageDto;
-import ru.gr0946x.db.entity.Message;
 import ru.gr0946x.db.entity.User;
 import ru.gr0946x.db.service.MessageService;
 import ru.gr0946x.db.service.UserService;
@@ -10,7 +9,6 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 public class ConnectedClient {
     private final Communicator communicator;
@@ -18,7 +16,7 @@ public class ConnectedClient {
     private String name = null;
     private final UserService userService;
     private final MessageService messageService;
-    private String temporaryNick = null;
+    private String temporaryName = null;
     private User dbUser = null;
 
     public ConnectedClient(Socket socket, UserService userService, MessageService messageService)
@@ -54,11 +52,11 @@ public class ConnectedClient {
                         + "Поле не может быть пустым");
                 sendData(MessageType.REQUEST
                         + ProtocolConstants.COMMAND_SEPARATOR
-                        + (temporaryNick == null ? "Введите имя:" : "Введите пароль:"));
+                        + (temporaryName == null ? "Введите имя:" : "Введите пароль:"));
                 return;
             }
 
-            if (temporaryNick == null) {
+            if (temporaryName == null) {
                 if (isInUse(data)) {
                     sendData(MessageType.ERROR
                             + ProtocolConstants.COMMAND_SEPARATOR
@@ -68,7 +66,7 @@ public class ConnectedClient {
                             + "Введите имя:");
                     return;
                 }
-                temporaryNick = data;
+                temporaryName = data;
                 sendData(MessageType.REQUEST
                         + ProtocolConstants.COMMAND_SEPARATOR
                         + "Введите пароль:");
@@ -76,19 +74,19 @@ public class ConnectedClient {
             }
 
             try {
-                if (userService.isNickTaken(temporaryNick)) {
-                    dbUser = userService.login(temporaryNick, data);
+                if (userService.isNickTaken(temporaryName)) {
+                    dbUser = userService.login(temporaryName, data);
                 } else {
-                    dbUser = userService.register(temporaryNick, data);
+                    dbUser = userService.register(temporaryName, data);
                 }
-                name = temporaryNick;
+                name = temporaryName;
                 sendForAll(MessageType.INFO, "Пользователь " + name + " вошел в чат");
                 broadcastUsersList();
             } catch (IllegalArgumentException e) {
                 sendData(MessageType.ERROR
                         + ProtocolConstants.COMMAND_SEPARATOR
                         + e.getMessage());
-                temporaryNick = null;
+                temporaryName = null;
                 sendData(MessageType.REQUEST
                         + ProtocolConstants.COMMAND_SEPARATOR
                         + "Введите имя:");
@@ -110,6 +108,14 @@ public class ConnectedClient {
         String commandOrNick = parts[0].trim();
         String content = parts[1].trim();
 
+        if (commandOrNick.equalsIgnoreCase("read")) {
+            User sender = userService.findByNick(content).orElse(null);
+            if (sender != null) {
+                messageService.markAsRead(sender.getId(), dbUser.getId());
+            }
+            return;
+        }
+
         if (commandOrNick.equalsIgnoreCase("history")) {
             showHistory(content);
             return;
@@ -118,26 +124,31 @@ public class ConnectedClient {
         if (commandOrNick.equalsIgnoreCase("find")) {
             String[] searchParts = content.split(":", 2);
             if (searchParts.length == 2) {
-                searchHistory(searchParts[0].trim(), searchParts[1].trim());
+                String targetNick = searchParts[0].trim();
+                String fragment = searchParts[1].trim();
+
+                if (targetNick.equalsIgnoreCase("all")) {
+                    List<MessageDto> found = messageService.searchMessagesInChat(dbUser, 0L, fragment);
+                    sendData(MessageType.INFO + ProtocolConstants.COMMAND_SEPARATOR + "--- Результаты поиска в общем чате ---");
+                    for (MessageDto m : found) {
+                        sendData(MessageType.MESSAGE + ProtocolConstants.COMMAND_SEPARATOR + m.authorNick() + ProtocolConstants.AUTHOR_SEPARATOR + m.content());
+                    }
+                } else {
+                    searchHistory(targetNick, fragment);
+                }
             } else {
-                sendData(MessageType.ERROR
-                        + ProtocolConstants.COMMAND_SEPARATOR
-                        + "Неверный формат. Используйте: find:пользователь:текст");
+                sendData(MessageType.ERROR + ProtocolConstants.COMMAND_SEPARATOR + "Неверный формат.");
             }
             return;
         }
 
         User receiver = userService.findByNick(commandOrNick).orElse(null);
         if (receiver == null) {
-            sendData(MessageType.ERROR
-                    + ProtocolConstants.COMMAND_SEPARATOR
-                    + "Пользователь не найден");
+            sendData(MessageType.ERROR + ProtocolConstants.COMMAND_SEPARATOR + "Пользователь не найден");
             return;
         }
 
-
-        boolean isRead = clients.stream().anyMatch(c -> c.name != null && c.name.equalsIgnoreCase(commandOrNick));
-        messageService.createMessage(dbUser, receiver.getId(), content, isRead);
+        messageService.createMessage(dbUser, receiver.getId(), content, false);
 
         clients.stream()
                 .filter(c -> c.name != null && (c.name.equalsIgnoreCase(commandOrNick) || c.name.equalsIgnoreCase(name)))

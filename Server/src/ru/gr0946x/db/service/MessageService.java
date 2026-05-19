@@ -69,4 +69,9 @@ public class MessageService {
                 ))
                 .toList();
     }
+
+    @Transactional
+    public void markAsRead(Long authorId, Long receiverId) {
+        messageRepository.markAsRead(authorId, receiverId);
+    }
 }

@@ -8,24 +8,23 @@ import java.util.function.BiConsumer;
 
 public class Client {
     private Communicator communicator;
-    private final List<BiConsumer<String, MessageType>> listeners =
-            new ArrayList<>();
+    private final List<BiConsumer<String, MessageType>> listeners = new ArrayList<>();
+
     public Client(String host, int port) throws IOException {
         var socket = new Socket(host, port);
         communicator = new Communicator(socket);
         communicator.addDataListener(this::parseData);
     }
 
-    public void addDataListener(BiConsumer<String, MessageType> listener){
+    public void addDataListener(BiConsumer<String, MessageType> listener) {
         listeners.add(listener);
     }
 
-
-    public void start(){
+    public void start() {
         communicator.start();
     }
 
-    private void parseData(String data){
+    private void parseData(String data) {
         var fullInfo = data.split(ProtocolConstants.COMMAND_SEPARATOR, 2);
         if (fullInfo.length == 2) {
             var type = MessageType.valueOf(fullInfo[0]);
@@ -36,11 +35,7 @@ public class Client {
         }
     }
 
-    public void sendData(String data){
+    public void sendData(String data) {
         communicator.sendData(data);
-    }
-
-    public void stop(){
-        communicator.stop();
     }
 }
