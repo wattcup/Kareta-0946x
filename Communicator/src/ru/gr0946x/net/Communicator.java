@@ -15,6 +15,7 @@ public class Communicator {
     private final BufferedReader in;
     private final PrintWriter out;
     private boolean isActive;
+    private Runnable onDisconnect;
 
     private final List<Consumer<String>> dataListeners = new ArrayList<>();
 
@@ -22,8 +23,8 @@ public class Communicator {
         dataListeners.add(c);
     }
 
-    public void removeDataListener(Consumer<String> c){
-        dataListeners.remove(c);
+    public void setOnDisconnect(Runnable onDisconnect) {
+        this.onDisconnect = onDisconnect;
     }
 
     public Communicator(Socket socket) throws IOException {
@@ -56,6 +57,9 @@ public class Communicator {
                 System.err.println(e.getMessage());
             }
             finally {
+                if (onDisconnect != null) {
+                    onDisconnect.run();
+                }
                 stop();
             }
         }).start();

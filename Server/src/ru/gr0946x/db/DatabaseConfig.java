@@ -17,28 +17,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import javax.sql.DataSource;
 import java.util.Properties;
 
-/**
- * Конфигурационный класс Spring для настройки уровня доступа
- * к данным (JPA/Hibernate).
- * <p>
- * Отвечает за инициализацию инфраструктуры работы с базой данных:
- * <ul>
- *   <li>Загружает параметры подключения и настройки ORM из
- *   {@code application.properties}</li>
- *   <li>Создаёт и настраивает {@link DataSource}
- *   для управления JDBC-соединениями</li>
- *   <li>Инициализирует {@link EntityManagerFactory}
- *   с адаптером Hibernate</li>
- *   <li>Настраивает менеджер транзакций для поддержки
- *   {@code @Transactional}</li>
- *   <li>Автоматически регистрирует репозитории и сервисы
- *   в пакете {@code ru.gr0946x.db}</li>
- * </ul>
- * <p>
- * Класс помечен как корневая конфигурация и используется при запуске приложения
- *
- * @author Маклецов С. В.
- */
+
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(basePackages = "ru.gr0946x.db.repository")

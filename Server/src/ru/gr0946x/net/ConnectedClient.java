@@ -1,5 +1,6 @@
 package ru.gr0946x.net;
 
+import ru.gr0946x.db.dto.MessageDto;
 import ru.gr0946x.db.entity.Message;
 import ru.gr0946x.db.entity.User;
 import ru.gr0946x.db.service.MessageService;
@@ -26,6 +27,9 @@ public class ConnectedClient {
         this.messageService = messageService;
         communicator = new Communicator(socket);
         communicator.addDataListener(this::parseData);
+
+        communicator.setOnDisconnect(this::stop);
+
         synchronized (clients) {
             clients.add(this);
         }
@@ -54,7 +58,6 @@ public class ConnectedClient {
                 return;
             }
 
-            // Этап 1: Получение никнейма
             if (temporaryNick == null) {
                 if (isInUse(data)) {
                     sendData(MessageType.ERROR
@@ -72,24 +75,20 @@ public class ConnectedClient {
                 return;
             }
 
-            // Этап 2: Получение пароля и проверка в БД
             try {
                 if (userService.isNickTaken(temporaryNick)) {
-                    // Если ник есть в БД — пытаемся войти
                     dbUser = userService.login(temporaryNick, data);
                 } else {
-                    // Если ника нет — регистрируем нового пользователя
                     dbUser = userService.register(temporaryNick, data);
                 }
                 name = temporaryNick;
                 sendForAll(MessageType.INFO, "Пользователь " + name + " вошел в чат");
                 broadcastUsersList();
             } catch (IllegalArgumentException e) {
-                // Возвращаем ошибку валидации или неверного пароля клиенту
                 sendData(MessageType.ERROR
                         + ProtocolConstants.COMMAND_SEPARATOR
                         + e.getMessage());
-                temporaryNick = null; // Сбрасываем процесс авторизации
+                temporaryNick = null;
                 sendData(MessageType.REQUEST
                         + ProtocolConstants.COMMAND_SEPARATOR
                         + "Введите имя:");
@@ -135,6 +134,7 @@ public class ConnectedClient {
                     + "Пользователь не найден");
             return;
         }
+
 
         boolean isRead = clients.stream().anyMatch(c -> c.name != null && c.name.equalsIgnoreCase(commandOrNick));
         messageService.createMessage(dbUser, receiver.getId(), content, isRead);
@@ -187,12 +187,12 @@ public class ConnectedClient {
             sendData(MessageType.ERROR + ProtocolConstants.COMMAND_SEPARATOR + "Пользователь не найден");
             return;
         }
-        List<Message> history = messageService.getChatHistory(dbUser, target.getId());
+        List<MessageDto> history = messageService.getChatHistory(dbUser, target.getId());
         sendData(MessageType.INFO + ProtocolConstants.COMMAND_SEPARATOR + "--- История с " + targetNick + " ---");
-        for (Message m : history) {
-            String authorName = m.getAuthor().getId().equals(dbUser.getId()) ? name : targetNick;
+        for (MessageDto m : history) {
             String status = m.isReceived() ? "[Прочитано]" : "[Не прочитано]";
-            sendData(MessageType.MESSAGE + ProtocolConstants.COMMAND_SEPARATOR + authorName + ProtocolConstants.AUTHOR_SEPARATOR + m.getContent() + " " + status);
+            sendData(MessageType.MESSAGE + ProtocolConstants.COMMAND_SEPARATOR + m.authorNick() +
+                    ProtocolConstants.AUTHOR_SEPARATOR + m.content() + " " + status);
         }
     }
 
@@ -202,28 +202,24 @@ public class ConnectedClient {
             sendData(MessageType.ERROR + ProtocolConstants.COMMAND_SEPARATOR + "Пользователь не найден");
             return;
         }
-        List<Message> found = messageService.searchMessagesInChat(dbUser, target.getId(), fragment);
+        List<MessageDto> found = messageService.searchMessagesInChat(dbUser, target.getId(), fragment);
         sendData(MessageType.INFO + ProtocolConstants.COMMAND_SEPARATOR + "--- Результаты поиска ---");
-        for (Message m : found) {
-            String authorName = m.getAuthor().getId().equals(dbUser.getId()) ? name : targetNick;
-            sendData(MessageType.MESSAGE + ProtocolConstants.COMMAND_SEPARATOR + authorName + ProtocolConstants.AUTHOR_SEPARATOR + m.getContent());
+        for (MessageDto m : found) {
+            sendData(MessageType.MESSAGE + ProtocolConstants.COMMAND_SEPARATOR + m.authorNick() + ProtocolConstants.AUTHOR_SEPARATOR + m.content());
         }
     }
 
     private void broadcastUsersList() {
-        StringBuilder sb = new StringBuilder();
         synchronized (clients) {
-            for (ConnectedClient c : clients) {
-                if (c.name != null) {
-                    sb.append(c.name).append(",");
-                }
-            }
-        }
-        String list = sb.toString();
-        synchronized (clients) {
-            for (ConnectedClient c : clients) {
-                if (c.name != null) {
-                    c.sendData(MessageType.USERS_LIST + ProtocolConstants.COMMAND_SEPARATOR + list);
+            for (ConnectedClient target : clients) {
+                if (target.name != null) {
+                    StringBuilder sb = new StringBuilder();
+                    for (ConnectedClient c : clients) {
+                        if (c.name != null && !c.name.equals(target.name)) {
+                            sb.append(c.name).append(",");
+                        }
+                    }
+                    target.sendData(MessageType.USERS_LIST + ProtocolConstants.COMMAND_SEPARATOR + sb.toString());
                 }
             }
         }

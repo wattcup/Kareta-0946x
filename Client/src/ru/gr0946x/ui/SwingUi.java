@@ -39,6 +39,15 @@ public class SwingUi implements Ui {
             listScroll.setBorder(BorderFactory.createTitledBorder("В сети:"));
             frame.add(listScroll, BorderLayout.EAST);
 
+            userList.addListSelectionListener(e -> {
+                if (!e.getValueIsAdjusting()) {
+                    String selectedUser = userList.getSelectedValue();
+                    if (selectedUser != null && !selectedUser.isBlank()) {
+                        notifyListeners("history:" + selectedUser.trim());
+                    }
+                }
+            });
+
             JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
             JButton historyButton = new JButton("История чата");
             JButton searchButton = new JButton("Поиск по чату");
@@ -137,10 +146,5 @@ public class SwingUi implements Ui {
     @Override
     public void addUserDataListener(Consumer<String> listener) {
         listeners.add(listener);
-    }
-
-    @Override
-    public void removeUserDataListener(Consumer<String> listener) {
-        listeners.remove(listener);
     }
 }

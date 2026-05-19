@@ -50,8 +50,4 @@ public class ConsoleUi implements Ui{
         listeners.add(listener);
     }
 
-    @Override
-    public void removeUserDataListener(Consumer<String> listener) {
-        listeners.remove(listener);
-    }
 }
